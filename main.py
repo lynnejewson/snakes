@@ -17,67 +17,73 @@ class Vector:
 
 
 class Property:
-	def __init__(self, magnitude, speed, acceleration, max=250):
+	def __init__(self, magnitude, speed, acceleration, bounce=True, min=0, max=600):
 		self.magnitude = magnitude
 		self.speed = speed
 		self.acceleration = acceleration
-		self.max = max
+		self.min, self.max = min, max
+		self.bounce = bounce
 
 	def step(self, interval):
 		self.magnitude += self.speed * interval + 0.5 * self.acceleration * interval ** 2
 		self.speed += self.acceleration * interval
-		if self.magnitude > self.max:
+		if self.bounce:
+			self.check_bounce()
+		else:
+			self.check_stop()
+
+	def check_bounce(self):
+		if self.magnitude >= self.max:
+			self.speed = -self.speed
+		elif self.magnitude <= self.min:
+			self.speed = -self.speed
+
+	def check_stop(self):
+		if self.magnitude >= self.max:
 			self.magnitude = self.max
-
-
-size = Vector(600, 600)
-mid = Vector(size.x/2, size.y/2)
+		elif self.magnitude <= self.min:
+			self.magnitude = self.min
 
 
 class Snake:
-	def __init__(self, origin, position, angle, length, maxspeed=1000):
-		self.origin = origin
-		self.position = position
-		self.angle = angle
+	def __init__(self, x, y, length, maxspeed=1000, colour='black'):
+		self.x, self.y = x, y
+		self.properties = (self.x, self.y)
+		self.colour = colour
+		self.maxspeed = maxspeed
 		self.length = length
 		self.ids = []
 
 	def step(self, interval):
-		self.position.step(interval)
-		self.angle.step(interval)
-
-	def cartesian(self):
-		x = self.origin.x + math.sin(self.angle.magnitude) * self.position.magnitude
-		y = self.origin.y + math.cos(self.angle.magnitude) * self.position.magnitude
-		return x, y
+		for i in self.properties:
+			i.step(interval)
 
 	def draw(self, canvas, size):
 		hsize = size * 0.5
-		x, y = self.cartesian()
-		self.ids.append(canvas.create_oval(x - hsize, y - hsize, x + hsize, y + hsize))
+		x, y = self.x.magnitude, self.y.magnitude
+		self.ids.append(canvas.create_oval(x - hsize, y - hsize, x + hsize, y + hsize, outline=self.colour))
 		if len(self.ids) >= self.length:
 			canvas.delete(self.ids[-self.length])
 
 	def jerk(self):
-		var = uniform(-100, 100)
-		change = -1 + 2 / (1 + math.e ** var)
-		self.angle.magnitude += change/10
+		for i in [self.x, self.y]:
+			i.acceleration = uniform(-1, 1)
 
 
-	def bounce(self, dimension):
-		setattr(self.u, dimension, -getattr(self.u, dimension))
-
+canvas_size = Vector(600, 600)
+canvas_centre = Vector(canvas_size.x/2, canvas_size.y/2)
 
 root = tk.Tk()
-canvas = tk.Canvas(root, height=size.x, width=size.y)
+canvas = tk.Canvas(root, height=canvas_size.x, width=canvas_size.y)
 
 
-s = Snake(mid, Property(0, 1, 0), Property(0.1, 0, 0), 30)
-t = Snake(mid, Property(0, 0.1, 0), Property(0, 0.2, 0), 60)
-u = Snake(mid, Property(0, 0.1, 0), Property(0, 0.3, 0), 60)
+a = Snake(Property(250, 3, 0), Property(250, 2, 0), 20)
+b = Snake(Property(250, 0.1, 0), Property(0, 0.2, 0), 20)
+c = Snake(Property(250, 0.1, 0), Property(0, 0.3, 0), 20)
 
 
-tostep = [s]
+tostep = (a, )
+
 
 def repeat():
 	for snake in tostep:
