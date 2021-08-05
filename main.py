@@ -16,6 +16,25 @@ class Vector:
 		self.x, self.y = x, y
 
 
+class LimitedVariable:
+	def __init__(self, val, *conditions):
+		self._val = val
+		self.conditions = conditions
+
+	@property
+	def val(self):
+		return self._val
+	
+	@val.setter
+	def val(self, new):
+		valid = True
+		for c in self.conditions:
+			if not c(new):
+				valid = False
+		if valid:
+			self._val = new
+
+
 class Property:
 	def __init__(self, magnitude, speed, acceleration, bounce=True, min=0, max=600):
 		self.magnitude = magnitude
@@ -25,33 +44,35 @@ class Property:
 		self.bounce = bounce
 
 	def step(self, interval):
-		self.magnitude += self.speed * interval + 0.5 * self.acceleration * interval ** 2
-		self.speed += self.acceleration * interval
-		if self.bounce:
-			self.check_bounce()
-		else:
-			self.check_stop()
+		self.magnitude.val += self.speed.val * interval + 0.5 * self.acceleration.val * interval ** 2
+		self.speed.val += self.acceleration.val * interval
 
-	def check_bounce(self):
-		if self.magnitude >= self.max:
-			self.speed = -self.speed
-		elif self.magnitude <= self.min:
-			self.speed = -self.speed
-
-	def check_stop(self):
-		if self.magnitude >= self.max:
-			self.magnitude = self.max
-		elif self.magnitude <= self.min:
-			self.magnitude = self.min
-
-
+	
 class Snake:
-	def __init__(self, x, y, length, maxspeed=1000, colour='black'):
-		self.x, self.y = x, y
-		self.properties = (self.x, self.y)
-		self.colour = colour
-		self.maxspeed = maxspeed
-		self.length = length
+	def __init__(self, **chosen_properties):
+		possible_property_keys = ['x', 'y', 'z', 'length', 'maxspeed', 'colour']
+		min_s = lambda x: x > 50
+		min_v = lambda x: x > -10
+		min_a = lambda x: x > -5
+		max_s = lambda x: x < 550
+		max_v = lambda x: x < 10
+		max_a = lambda x: x < 5
+		default_properties = {
+			'x': Property(LimitedVariable(250, min_s, max_s), LimitedVariable(0, min_v, max_v), LimitedVariable(0, min_a, max_a)),
+			'y': Property(LimitedVariable(250, min_s, max_s), LimitedVariable(0, min_v, max_v), LimitedVariable(0, min_a, max_a)),
+			'z': Property(LimitedVariable(250, min_s, max_s), LimitedVariable(0, min_v, max_v), LimitedVariable(0, min_a, max_a)),
+			'length': 20,
+			'maxspeed': 1000,
+			'colour': 'black'
+		}
+
+		for p in possible_property_keys:
+			if p in chosen_properties:
+				setattr(self, p, chosen_properties[p])
+			else:
+				setattr(self, p, default_properties[p])
+
+		self.properties = (self.x, self.y, self.z)
 		self.ids = []
 
 	def step(self, interval):
@@ -59,15 +80,16 @@ class Snake:
 			i.step(interval)
 
 	def draw(self, canvas, size):
-		hsize = size * 0.5
-		x, y = self.x.magnitude, self.y.magnitude
+		x, y, z = self.x.magnitude.val, self.y.magnitude.val, self.z.magnitude.val
+		size = z
+		hsize = size * 0.05
 		self.ids.append(canvas.create_oval(x - hsize, y - hsize, x + hsize, y + hsize, outline=self.colour))
 		if len(self.ids) >= self.length:
 			canvas.delete(self.ids[-self.length])
 
 	def jerk(self):
-		for i in [self.x, self.y]:
-			i.acceleration = uniform(-1, 1)
+		for i in [self.x, self.y, self.z]:
+			i.acceleration.val = uniform(-1, 1)
 
 
 canvas_size = Vector(600, 600)
@@ -77,22 +99,25 @@ root = tk.Tk()
 canvas = tk.Canvas(root, height=canvas_size.x, width=canvas_size.y)
 
 
-a = Snake(Property(250, 3, 0), Property(250, 2, 0), 20)
-b = Snake(Property(250, 0.1, 0), Property(0, 0.2, 0), 20)
-c = Snake(Property(250, 0.1, 0), Property(0, 0.3, 0), 20)
+a = Snake()
+b = Snake()
+c = Snake()
 
+tostep = (a, b, c)
 
-tostep = (a, )
+i = 0
 
-
-def repeat():
+def repeat(i):
+	i += 1
 	for snake in tostep:
 		snake.step(1)
-		snake.jerk()
+		if i%10 == 0:
+			snake.jerk()
+		print(snake.x.acceleration.val, snake.y.acceleration.val, snake.z.acceleration.val)
 		snake.draw(canvas, 5)
-	canvas.after(10, repeat)
+	canvas.after(10, lambda: repeat(i))
 
-canvas.after(10, repeat)
+canvas.after(10, lambda: repeat(i))
 
 canvas.pack()
 root.mainloop()
