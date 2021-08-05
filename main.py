@@ -50,20 +50,18 @@ class Property:
 	
 class Snake:
 	def __init__(self, **chosen_properties):
-		possible_property_keys = ['x', 'y', 'z', 'length', 'maxspeed', 'colour']
-		min_s = lambda x: x > 50
-		min_v = lambda x: x > -10
-		min_a = lambda x: x > -5
-		max_s = lambda x: x < 550
-		max_v = lambda x: x < 10
-		max_a = lambda x: x < 5
+		possible_property_keys = ['x', 'y', 'z', 'length', 'maxspeed', 'colour', 'twitch_period']
+		s = lambda x: 50 < x and x < 550
+		v = lambda x: -2 < x and x < 2
+		a = lambda x: -5 < x and x < 5
 		default_properties = {
-			'x': Property(LimitedVariable(250, min_s, max_s), LimitedVariable(0, min_v, max_v), LimitedVariable(0, min_a, max_a)),
-			'y': Property(LimitedVariable(250, min_s, max_s), LimitedVariable(0, min_v, max_v), LimitedVariable(0, min_a, max_a)),
-			'z': Property(LimitedVariable(250, min_s, max_s), LimitedVariable(0, min_v, max_v), LimitedVariable(0, min_a, max_a)),
-			'length': 20,
+			'x': Property(LimitedVariable(250, s), LimitedVariable(0, v), LimitedVariable(0, a)),
+			'y': Property(LimitedVariable(250, s), LimitedVariable(0, v), LimitedVariable(0, a)),
+			'z': Property(LimitedVariable(250, s), LimitedVariable(0, v), LimitedVariable(0, a)),
+			'length': 50,
 			'maxspeed': 1000,
-			'colour': 'black'
+			'colour': 'black',
+			'twitch_period': 10
 		}
 
 		for p in possible_property_keys:
@@ -82,12 +80,12 @@ class Snake:
 	def draw(self, canvas, size):
 		x, y, z = self.x.magnitude.val, self.y.magnitude.val, self.z.magnitude.val
 		size = z
-		hsize = size * 0.05
+		hsize = (size - 50) / 10 + 1
 		self.ids.append(canvas.create_oval(x - hsize, y - hsize, x + hsize, y + hsize, outline=self.colour))
 		if len(self.ids) >= self.length:
 			canvas.delete(self.ids[-self.length])
 
-	def jerk(self):
+	def twitch(self):
 		for i in [self.x, self.y, self.z]:
 			i.acceleration.val = uniform(-1, 1)
 
@@ -99,9 +97,9 @@ root = tk.Tk()
 canvas = tk.Canvas(root, height=canvas_size.x, width=canvas_size.y)
 
 
-a = Snake()
-b = Snake()
-c = Snake()
+a = Snake(twitch_period=50)
+b = Snake(twitch_period=30)
+c = Snake(twitch_period=10)
 
 tostep = (a, b, c)
 
@@ -111,9 +109,8 @@ def repeat(i):
 	i += 1
 	for snake in tostep:
 		snake.step(1)
-		if i%10 == 0:
-			snake.jerk()
-		print(snake.x.acceleration.val, snake.y.acceleration.val, snake.z.acceleration.val)
+		if i%snake.twitch_period == 0:
+			snake.twitch()
 		snake.draw(canvas, 5)
 	canvas.after(10, lambda: repeat(i))
 
